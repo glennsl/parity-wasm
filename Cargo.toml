@@ -53,3 +53,7 @@ bulk = []
 # Multi-value
 # https://github.com/WebAssembly/multi-value/
 multi_value = []
+
+# Asm.js compatibility
+# https://github.com/v8/v8/blob/17a99fec258bcc07ea9fc5e4fabcce259751db03/src/wasm/wasm-opcodes.h#L251-L285
+asmjs = []

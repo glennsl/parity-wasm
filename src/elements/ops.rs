@@ -50,7 +50,7 @@ impl Deserialize for Instructions {
 
 			instructions.push(instruction);
 			if block_count == 0 {
-				break
+				break;
 			}
 		}
 
@@ -97,7 +97,7 @@ impl Deserialize for InitExpr {
 			let is_terminal = instruction.is_terminal();
 			instructions.push(instruction);
 			if is_terminal {
-				break
+				break;
 			}
 		}
 
@@ -309,6 +309,9 @@ pub enum Instruction {
 
 	#[cfg(feature = "bulk")]
 	Bulk(BulkInstruction),
+
+	#[cfg(feature = "asmjs")]
+	Asmjs(AsmjsInstruction),
 }
 
 #[allow(missing_docs)]
@@ -570,6 +573,43 @@ pub enum BulkInstruction {
 	TableInit(u32),
 	TableDrop(u32),
 	TableCopy,
+}
+
+#[allow(missing_docs)]
+#[cfg(feature = "asmjs")]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum AsmjsInstruction {
+	F64Acos,
+	F64Asin,
+	F64Atan,
+	F64Cos,
+	F64Sin,
+	F64Tan,
+	F64Exp,
+	F64Log,
+	F64Atan2,
+	F64Pow,
+	F64Mod,
+	I32DivS,
+	I32DivU,
+	I32RemS,
+	I32RemU,
+	I32LoadMem8S,
+	I32LoadMem8U,
+	I32LoadMem16S,
+	I32LoadMem16U,
+	I32LoadMem,
+	F32LoadMem,
+	F64LoadMem,
+	I32StoreMem8,
+	I32StoreMem16,
+	I32StoreMem,
+	F32StoreMem,
+	F64StoreMem,
+	I32SConvertF32,
+	I32UConvertF32,
+	I32SConvertF64,
+	I32UConvertF64,
 }
 
 #[cfg(any(feature = "simd", feature = "atomics"))]
@@ -1047,6 +1087,41 @@ pub mod opcodes {
 		pub const TABLE_DROP: u8 = 0x0d;
 		pub const TABLE_COPY: u8 = 0x0e;
 	}
+
+	#[cfg(feature = "asmjs")]
+	pub mod asmjs {
+		pub const F64_ACOS: u8 = 0xdc;
+		pub const F64_ASIN: u8 = 0xdd;
+		pub const F64_ATAN: u8 = 0xde;
+		pub const F64_COS: u8 = 0xdf;
+		pub const F64_SIN: u8 = 0xe0;
+		pub const F64_TAN: u8 = 0xe1;
+		pub const F64_EXP: u8 = 0xe2;
+		pub const F64_LOG: u8 = 0xe3;
+		pub const F64_ATAN2: u8 = 0xe4;
+		pub const F64_POW: u8 = 0xe5;
+		pub const F64_MOD: u8 = 0xe6;
+		pub const I32_ASMJS_DIV_S: u8 = 0xe7;
+		pub const I32_ASMJS_DIV_U: u8 = 0xe8;
+		pub const I32_ASMJS_REM_S: u8 = 0xe9;
+		pub const I32_ASMJS_REM_U: u8 = 0xea;
+		pub const I32_ASMJS_LOADMEM_8S: u8 = 0xeb;
+		pub const I32_ASMJS_LOADMEM_8U: u8 = 0xec;
+		pub const I32_ASMJS_LOADMEM_16S: u8 = 0xed;
+		pub const I32_ASMJS_LOADMEM_16U: u8 = 0xee;
+		pub const I32_ASMJS_LOADMEM: u8 = 0xef;
+		pub const F32_ASMJS_LOADMEM: u8 = 0xf0;
+		pub const F64_ASMJS_LOADMEM: u8 = 0xf1;
+		pub const I32_ASMJS_STOREMEM_8: u8 = 0xf2;
+		pub const I32_ASMJS_STOREMEM_16: u8 = 0xf3;
+		pub const I32_ASMJS_STOREMEM: u8 = 0xf4;
+		pub const F32_ASMJS_STOREMEM: u8 = 0xf5;
+		pub const F64_ASMJS_STOREMEM: u8 = 0xf6;
+		pub const I32_ASMJS_S_CONVERT_F32: u8 = 0xf7;
+		pub const I32_ASMJS_U_CONVERT_F32: u8 = 0xf8;
+		pub const I32_ASMJS_S_CONVERT_F64: u8 = 0xf9;
+		pub const I32_ASMJS_U_CONVERT_F64: u8 = 0xfa;
+	}
 }
 
 impl Deserialize for Instruction {
@@ -1057,6 +1132,9 @@ impl Deserialize for Instruction {
 
 		#[cfg(feature = "sign_ext")]
 		use self::opcodes::sign_ext::*;
+
+		#[cfg(feature = "asmjs")]
+		use self::opcodes::asmjs::*;
 
 		let val: u8 = Uint8::deserialize(reader)?.into();
 
@@ -1082,18 +1160,18 @@ impl Deserialize for Instruction {
 					table: t1.into_boxed_slice(),
 					default: VarUint32::deserialize(reader)?.into(),
 				}))
-			},
+			}
 			RETURN => Return,
 			CALL => Call(VarUint32::deserialize(reader)?.into()),
 			CALLINDIRECT => {
 				let signature: u32 = VarUint32::deserialize(reader)?.into();
 				let table_ref: u8 = Uint8::deserialize(reader)?.into();
 				if table_ref != 0 {
-					return Err(Error::InvalidTableReference(table_ref))
+					return Err(Error::InvalidTableReference(table_ref));
 				}
 
 				CallIndirect(signature, table_ref)
-			},
+			}
 			DROP => Drop,
 			SELECT => Select,
 
@@ -1221,17 +1299,17 @@ impl Deserialize for Instruction {
 			CURRENTMEMORY => {
 				let mem_ref: u8 = Uint8::deserialize(reader)?.into();
 				if mem_ref != 0 {
-					return Err(Error::InvalidMemoryReference(mem_ref))
+					return Err(Error::InvalidMemoryReference(mem_ref));
 				}
 				CurrentMemory(mem_ref)
-			},
+			}
 			GROWMEMORY => {
 				let mem_ref: u8 = Uint8::deserialize(reader)?.into();
 				if mem_ref != 0 {
-					return Err(Error::InvalidMemoryReference(mem_ref))
+					return Err(Error::InvalidMemoryReference(mem_ref));
 				}
 				GrowMemory(mem_ref)
-			},
+			}
 
 			I32CONST => I32Const(VarInt32::deserialize(reader)?.into()),
 			I64CONST => I64Const(VarInt64::deserialize(reader)?.into()),
@@ -1378,6 +1456,42 @@ impl Deserialize for Instruction {
 				_ => return Err(Error::UnknownOpcode(val)),
 			},
 
+			#[cfg(feature = "asmjs")]
+			F64_ACOS..=I32_ASMJS_U_CONVERT_F64 => match val {
+				F64_ACOS => Asmjs(AsmjsInstruction::F64Acos),
+				F64_ASIN => Asmjs(AsmjsInstruction::F64Asin),
+				F64_ATAN => Asmjs(AsmjsInstruction::F64Atan),
+				F64_COS => Asmjs(AsmjsInstruction::F64Cos),
+				F64_SIN => Asmjs(AsmjsInstruction::F64Sin),
+				F64_TAN => Asmjs(AsmjsInstruction::F64Tan),
+				F64_EXP => Asmjs(AsmjsInstruction::F64Exp),
+				F64_LOG => Asmjs(AsmjsInstruction::F64Log),
+				F64_ATAN2 => Asmjs(AsmjsInstruction::F64Atan2),
+				F64_POW => Asmjs(AsmjsInstruction::F64Pow),
+				F64_MOD => Asmjs(AsmjsInstruction::F64Mod),
+				I32_ASMJS_DIV_S => Asmjs(AsmjsInstruction::I32DivS),
+				I32_ASMJS_DIV_U => Asmjs(AsmjsInstruction::I32DivU),
+				I32_ASMJS_REM_S => Asmjs(AsmjsInstruction::I32RemS),
+				I32_ASMJS_REM_U => Asmjs(AsmjsInstruction::I32RemU),
+				I32_ASMJS_LOADMEM_8S => Asmjs(AsmjsInstruction::I32LoadMem8S),
+				I32_ASMJS_LOADMEM_8U => Asmjs(AsmjsInstruction::I32LoadMem8U),
+				I32_ASMJS_LOADMEM_16S => Asmjs(AsmjsInstruction::I32LoadMem16S),
+				I32_ASMJS_LOADMEM_16U => Asmjs(AsmjsInstruction::I32LoadMem16U),
+				I32_ASMJS_LOADMEM => Asmjs(AsmjsInstruction::I32LoadMem),
+				F32_ASMJS_LOADMEM => Asmjs(AsmjsInstruction::F32LoadMem),
+				F64_ASMJS_LOADMEM => Asmjs(AsmjsInstruction::F64LoadMem),
+				I32_ASMJS_STOREMEM_8 => Asmjs(AsmjsInstruction::I32StoreMem8),
+				I32_ASMJS_STOREMEM_16 => Asmjs(AsmjsInstruction::I32StoreMem16),
+				I32_ASMJS_STOREMEM => Asmjs(AsmjsInstruction::I32StoreMem),
+				F32_ASMJS_STOREMEM => Asmjs(AsmjsInstruction::F32StoreMem),
+				F64_ASMJS_STOREMEM => Asmjs(AsmjsInstruction::F64StoreMem),
+				I32_ASMJS_S_CONVERT_F32 => Asmjs(AsmjsInstruction::I32SConvertF32),
+				I32_ASMJS_U_CONVERT_F32 => Asmjs(AsmjsInstruction::I32UConvertF32),
+				I32_ASMJS_S_CONVERT_F64 => Asmjs(AsmjsInstruction::I32SConvertF64),
+				I32_ASMJS_U_CONVERT_F64 => Asmjs(AsmjsInstruction::I32UConvertF64),
+				_ => return Err(Error::UnknownOpcode(val)),
+			},
+
 			#[cfg(feature = "atomics")]
 			atomics::ATOMIC_PREFIX => return deserialize_atomic(reader),
 
@@ -1488,7 +1602,7 @@ fn deserialize_simd<R: io::Read>(reader: &mut R) -> Result<Instruction, Error> {
 			let mut buf = [0; 16];
 			reader.read(&mut buf)?;
 			V128Const(Box::new(buf))
-		},
+		}
 		V128_LOAD => V128Load(MemArg::deserialize(reader)?),
 		V128_STORE => V128Store(MemArg::deserialize(reader)?),
 		I8X16_SPLAT => I8x16Splat,
@@ -1515,7 +1629,7 @@ fn deserialize_simd<R: io::Read>(reader: &mut R) -> Result<Instruction, Error> {
 			let mut buf = [0; 16];
 			reader.read(&mut buf)?;
 			V8x16Shuffle(Box::new(buf))
-		},
+		}
 		I8X16_ADD => I8x16Add,
 		I16X8_ADD => I16x8Add,
 		I32X4_ADD => I32x4Add,
@@ -1657,37 +1771,37 @@ fn deserialize_bulk<R: io::Read>(reader: &mut R) -> Result<Instruction, Error> {
 	Ok(Instruction::Bulk(match val {
 		MEMORY_INIT => {
 			if u8::from(Uint8::deserialize(reader)?) != 0 {
-				return Err(Error::UnknownOpcode(val))
+				return Err(Error::UnknownOpcode(val));
 			}
 			MemoryInit(VarUint32::deserialize(reader)?.into())
-		},
+		}
 		MEMORY_DROP => MemoryDrop(VarUint32::deserialize(reader)?.into()),
 		MEMORY_FILL => {
 			if u8::from(Uint8::deserialize(reader)?) != 0 {
-				return Err(Error::UnknownOpcode(val))
+				return Err(Error::UnknownOpcode(val));
 			}
 			MemoryFill
-		},
+		}
 		MEMORY_COPY => {
 			if u8::from(Uint8::deserialize(reader)?) != 0 {
-				return Err(Error::UnknownOpcode(val))
+				return Err(Error::UnknownOpcode(val));
 			}
 			MemoryCopy
-		},
+		}
 
 		TABLE_INIT => {
 			if u8::from(Uint8::deserialize(reader)?) != 0 {
-				return Err(Error::UnknownOpcode(val))
+				return Err(Error::UnknownOpcode(val));
 			}
 			TableInit(VarUint32::deserialize(reader)?.into())
-		},
+		}
 		TABLE_DROP => TableDrop(VarUint32::deserialize(reader)?.into()),
 		TABLE_COPY => {
 			if u8::from(Uint8::deserialize(reader)?) != 0 {
-				return Err(Error::UnknownOpcode(val))
+				return Err(Error::UnknownOpcode(val));
 			}
 			TableCopy
-		},
+		}
 
 		_ => return Err(Error::UnknownOpcode(val)),
 	}))
@@ -2060,6 +2174,9 @@ impl Serialize for Instruction {
 
 			#[cfg(feature = "bulk")]
 			Bulk(a) => return a.serialize(writer),
+
+			#[cfg(feature = "asmjs")]
+			Asmjs(_) => todo!(),
 		}
 
 		Ok(())
@@ -2635,6 +2752,9 @@ impl fmt::Display for Instruction {
 
 			#[cfg(feature = "bulk")]
 			Bulk(ref i) => i.fmt(f),
+
+			#[cfg(feature = "asmjs")]
+			Asmjs(ref i) => i.fmt(f),
 		}
 	}
 }
@@ -2897,6 +3017,47 @@ impl fmt::Display for BulkInstruction {
 			TableInit(_) => write!(f, "table.init"),
 			TableDrop(_) => write!(f, "table.drop"),
 			TableCopy => write!(f, "table.copy"),
+		}
+	}
+}
+
+#[cfg(feature = "asmjs")]
+impl fmt::Display for AsmjsInstruction {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		use self::AsmjsInstruction::*;
+
+		match *self {
+			F64Acos => write!(f, "asmjs.f64.acos"),
+			F64Asin => write!(f, "asmjs.f64.asin"),
+			F64Atan => write!(f, "asmjs.f64.atan"),
+			F64Cos => write!(f, "asmjs.f64.cos"),
+			F64Sin => write!(f, "asmjs.f64.sin"),
+			F64Tan => write!(f, "asmjs.f64.tan"),
+			F64Exp => write!(f, "asmjs.f64.exp"),
+			F64Log => write!(f, "asmjs.f64.log"),
+			F64Atan2 => write!(f, "asmjs.f64.atan2"),
+			F64Pow => write!(f, "asmjs.f64.pow"),
+			F64Mod => write!(f, "asmjs.f64.mod"),
+			I32DivS => write!(f, "asmjs.i32.div_s"),
+			I32DivU => write!(f, "asmjs.i32.div_u"),
+			I32RemS => write!(f, "asmjs.i32.rem_s"),
+			I32RemU => write!(f, "asmjs.i32.rem_u"),
+			I32LoadMem8S => write!(f, "asmjs.i32.load_mem_s"),
+			I32LoadMem8U => write!(f, "asmjs.i32.load_mem_u"),
+			I32LoadMem16S => write!(f, "asmjs.i32.load_mem_16_s"),
+			I32LoadMem16U => write!(f, "asmjs.i32.load_mem_16_u"),
+			I32LoadMem => write!(f, "asmjs.i32.load_mem"),
+			F32LoadMem => write!(f, "asmjs.f32.load_mem"),
+			F64LoadMem => write!(f, "asmjs.f64.load_mem"),
+			I32StoreMem8 => write!(f, "asmjs.i32.store_mem_8"),
+			I32StoreMem16 => write!(f, "asmjs.i32.sotre_mem_16"),
+			I32StoreMem => write!(f, "asmjs.i32.store_mem"),
+			F32StoreMem => write!(f, "asmjs.f32.store_mem"),
+			F64StoreMem => write!(f, "asmjs.f64.store_mem"),
+			I32SConvertF32 => write!(f, "asmjs.i32.convert_s/f32"),
+			I32UConvertF32 => write!(f, "asmjs.i32.convert_u/f32"),
+			I32SConvertF64 => write!(f, "asmjs.i32.convert_s/f64"),
+			I32UConvertF64 => write!(f, "asmjs.i32.convert_u/f64"),
 		}
 	}
 }
